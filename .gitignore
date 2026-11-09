@@ -1,6 +1,7 @@
 # Secrets — never commit these
 .env
 cookies.txt
+stats.db
 *.key
 *.pem
 

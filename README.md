@@ -9,9 +9,21 @@ so your friends can watch it without opening the app.
 - ✅ TikTok, Instagram Reels, YouTube Shorts
 - ✅ Works in private chats and **groups**
 - ✅ Up to 1080p with audio (video and audio are merged via ffmpeg)
+- 🎵 **Audio button** under every video — get the soundtrack as an mp3 with title and author
+- 📊 **Owner-only `/stats`**: users, groups, downloads (total / last 24h), audio extracts, errors, breakdown by platform
 - ✅ Handles several users at once (downloads run in a background thread)
 - ✅ Friendly errors: private videos, broken links, files over Telegram's 50 MB limit
 - ✅ Runs 24/7 on a Linux server as a systemd service with auto-restart
+
+## Commands
+
+| Command | Who | What it does |
+|---|---|---|
+| `/start` | everyone | Short instructions |
+| `/id` | everyone | Shows your Telegram user ID |
+| `/stats` | owner only | Usage statistics (ignored for everyone else) |
+
+Stats and button links are stored in a local SQLite file (`stats.db`), no external database needed.
 
 ## Tech stack
 
@@ -22,6 +34,7 @@ so your friends can watch it without opening the app.
 | Downloader | [yt-dlp](https://github.com/yt-dlp/yt-dlp) (+ curl-cffi) |
 | Media processing | ffmpeg |
 | YouTube JS challenges | Deno |
+| Storage | SQLite |
 | Hosting | Ubuntu 24.04 VPS (Oracle Cloud Free Tier), systemd |
 
 ## Quick start (local)
@@ -33,6 +46,7 @@ python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 
 export BOT_TOKEN="your-token-from-BotFather"
+export ADMIN_ID="your-telegram-id"   # optional, enables /stats
 python bot.py
 ```
 
@@ -56,7 +70,7 @@ git clone https://github.com/blessedrbls/telegram-video-saver-bot.git ~/video-bo
 python3 -m venv ~/video-bot/venv
 ~/video-bot/venv/bin/pip install -r ~/video-bot/requirements.txt
 
-cp ~/video-bot/.env.example ~/video-bot/.env   # then put your token inside
+cp ~/video-bot/.env.example ~/video-bot/.env   # then put your token and ADMIN_ID inside
 sudo cp ~/video-bot/deploy/video-bot.service /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now video-bot
 ```
@@ -69,7 +83,7 @@ Some platforms block anonymous downloads from datacenter IPs
 (YouTube: *"Sign in to confirm you're not a bot"*, Instagram: *"empty media response"*).
 Export cookies from a browser where you're logged in (e.g. with the *Get cookies.txt LOCALLY* extension),
 save them as `cookies.txt` next to `bot.py` and restart the bot.
-Use a secondary account. **Never commit cookies.txt** — it's already in `.gitignore`.
+Use a secondary account. **Never commit cookies.txt** (or `stats.db`) — both are already in `.gitignore`.
 
 ## Maintenance
 
