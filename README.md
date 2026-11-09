@@ -1,6 +1,7 @@
 # 🎬 Video Saver — Telegram bot
 
-A Telegram bot that turns **TikTok, Instagram Reels and YouTube Shorts** links into videos right in the chat.
+A Telegram bot that turns **TikTok, Instagram Reels and YouTube Shorts** links into videos right in the chat —
+and photo slideshows / carousels into albums.
 Send a link to the bot (or drop it in a group where the bot is a member) and it replies with the video file,
 so your friends can watch it without opening the app.
 
@@ -8,8 +9,10 @@ so your friends can watch it without opening the app.
 
 - ✅ TikTok, Instagram Reels, YouTube Shorts
 - ✅ Works in private chats and **groups**
+- 🖼 **Photo slideshows & carousels** (TikTok photo posts, Instagram multi-photo posts) sent as Telegram albums
+- ⚡ **Cache**: a link that was already sent is re-sent instantly by Telegram `file_id` — no re-download
 - ✅ Up to 1080p with audio (video and audio are merged via ffmpeg)
-- 🎵 **Audio button** under every video — get the soundtrack as an mp3 with title and author
+- 🎵 **Audio button** under every video (and under TikTok slideshows) — get the soundtrack as an mp3
 - 📊 **Owner-only `/stats`**: users, groups, downloads (total / last 24h), audio extracts, errors, breakdown by platform
 - ✅ Handles several users at once (downloads run in a background thread)
 - 🛡 **Anti-spam & load control**: max 5 requests per minute per user, max 2 downloads at once (the rest wait in a queue)
@@ -24,7 +27,7 @@ so your friends can watch it without opening the app.
 | `/id` | everyone | Shows your Telegram user ID |
 | `/stats` | owner only | Usage statistics (ignored for everyone else) |
 
-Stats and button links are stored in a local SQLite file (`stats.db`), no external database needed.
+Stats, cache and button links are stored in a local SQLite file (`stats.db`), no external database needed.
 
 ## Tech stack
 
@@ -32,7 +35,7 @@ Stats and button links are stored in a local SQLite file (`stats.db`), no extern
 |---|---|
 | Language | Python 3.10+ |
 | Telegram framework | [aiogram 3](https://github.com/aiogram/aiogram) |
-| Downloader | [yt-dlp](https://github.com/yt-dlp/yt-dlp) (+ curl-cffi) |
+| Downloader | [yt-dlp](https://github.com/yt-dlp/yt-dlp) (+ curl-cffi) for video, [gallery-dl](https://github.com/mikf/gallery-dl) for photo posts |
 | Media processing | ffmpeg |
 | YouTube JS challenges | Deno |
 | Storage | SQLite |
