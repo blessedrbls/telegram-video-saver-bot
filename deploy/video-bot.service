@@ -1,0 +1,15 @@
+[Unit]
+Description=Video Saver Telegram bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/video-bot
+EnvironmentFile=/home/ubuntu/video-bot/.env
+ExecStart=/home/ubuntu/video-bot/venv/bin/python bot.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

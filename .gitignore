@@ -1,0 +1,19 @@
+# Secrets — never commit these
+.env
+cookies.txt
+*.key
+*.pem
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Downloaded media
+*.mp4
+*.webm
+*.m4a
+
+# macOS
+.DS_Store
