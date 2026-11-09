@@ -8,6 +8,7 @@ import re
 import sqlite3
 import tempfile
 import time
+from collections import defaultdict, deque
 
 import yt_dlp
 from aiogram import Bot, Dispatcher, F
@@ -25,6 +26,24 @@ LINK_RE = re.compile(
 )
 
 dp = Dispatcher()
+
+# ---------- Anti-spam ----------
+LIMIT = 5        # max 5 requests...
+PERIOD = 60      # ...per 60 seconds per user
+recent = defaultdict(deque)            # user_id -> timestamps of recent requests
+download_slots = asyncio.Semaphore(2)  # at most 2 downloads at once so a small VPS doesn't run out of memory
+
+
+def wait_seconds(user_id: int) -> int:
+    """0 = allowed, otherwise how many seconds the user has to wait."""
+    now = time.time()
+    q = recent[user_id]
+    while q and now - q[0] > PERIOD:
+        q.popleft()
+    if len(q) >= LIMIT:
+        return int(PERIOD - (now - q[0])) + 1
+    q.append(now)
+    return 0
 
 # ---------- SQLite storage for stats and button links (single file: stats.db) ----------
 db = sqlite3.connect("stats.db")
@@ -140,11 +159,15 @@ async def stats(msg: Message):
 @dp.message(F.text.regexp(LINK_RE))
 async def handle_link(msg: Message):
     url = LINK_RE.search(msg.text).group(0)
+    if (sec := wait_seconds(msg.from_user.id)):
+        await msg.reply(f"🐢 Too many links in a row. Please wait {sec} s.")
+        return
     wait = await msg.reply("⏳ Downloading...")
     try:
         with tempfile.TemporaryDirectory() as tmp:
             # yt-dlp is blocking, so run it in a thread to keep the bot responsive
-            path = await asyncio.to_thread(download_video, url, tmp)
+            async with download_slots:  # queue if 2 downloads are already running
+                path = await asyncio.to_thread(download_video, url, tmp)
             if os.path.getsize(path) > MAX_SIZE:
                 await msg.reply("😕 The video is larger than 50 MB — Telegram won't let a bot send it.")
                 log_download(msg.from_user.id, msg.chat.id, "video", url, False)
@@ -171,10 +194,14 @@ async def handle_audio(call: CallbackQuery):
         await call.answer("This link has expired, please send it again 🙏", show_alert=True)
         return
     url = row[0]
+    if (sec := wait_seconds(call.from_user.id)):
+        await call.answer(f"🐢 Too fast. Please wait {sec} s.", show_alert=True)
+        return
     await call.answer("🎵 Extracting audio...")
     try:
         with tempfile.TemporaryDirectory() as tmp:
-            path, title, author = await asyncio.to_thread(download_audio, url, tmp)
+            async with download_slots:
+                path, title, author = await asyncio.to_thread(download_audio, url, tmp)
             await call.message.reply_audio(FSInputFile(path), title=title, performer=author)
             log_download(call.from_user.id, call.message.chat.id, "audio", url, True)
     except Exception as e:

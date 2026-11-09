@@ -12,6 +12,7 @@ so your friends can watch it without opening the app.
 - 🎵 **Audio button** under every video — get the soundtrack as an mp3 with title and author
 - 📊 **Owner-only `/stats`**: users, groups, downloads (total / last 24h), audio extracts, errors, breakdown by platform
 - ✅ Handles several users at once (downloads run in a background thread)
+- 🛡 **Anti-spam & load control**: max 5 requests per minute per user, max 2 downloads at once (the rest wait in a queue)
 - ✅ Friendly errors: private videos, broken links, files over Telegram's 50 MB limit
 - ✅ Runs 24/7 on a Linux server as a systemd service with auto-restart
 
