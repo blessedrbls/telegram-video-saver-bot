@@ -15,6 +15,7 @@ import time
 from collections import defaultdict, deque
 from urllib.parse import urlsplit
 
+import requests
 import yt_dlp
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import Command, CommandStart
@@ -54,6 +55,35 @@ def wait_seconds(user_id: int) -> int:
         return int(PERIOD - (now - q[0])) + 1
     q.append(now)
     return 0
+
+
+# ---------- Owner alerts in Telegram when something breaks ----------
+FAIL_LIMIT = 3                       # this many failures in a row on one platform = something is broken
+fails = defaultdict(int)             # platform -> consecutive failures
+last_alert = {}                      # platform -> time of the last alert
+
+
+async def alert(bot: Bot, text: str):
+    """Send a message to the owner (ADMIN_ID). Silently skipped if ADMIN_ID is not set."""
+    if ADMIN_ID:
+        try:
+            await bot.send_message(ADMIN_ID, text)
+        except Exception as e:
+            print("Couldn't send alert:", e)
+
+
+async def track(bot: Bot, url: str, ok: bool, error: str = ""):
+    """Count consecutive failures; after 3 on one platform alert the owner (at most once an hour)."""
+    platform = platform_of(url)
+    if ok:
+        fails[platform] = 0
+        return
+    fails[platform] += 1
+    if fails[platform] >= FAIL_LIMIT and time.time() - last_alert.get(platform, 0) > 3600:
+        last_alert[platform] = time.time()
+        await alert(bot, f"⚠️ {FAIL_LIMIT} failures in a row on {platform}.\n"
+                         f"yt-dlp may be outdated or cookies may have expired.\n\n"
+                         f"Last error:\n{error[:500]}")
 
 
 # ---------- SQLite storage: stats, button links, cache (single file: stats.db) ----------
@@ -156,8 +186,25 @@ def download_gallery(url: str, folder: str) -> list[str]:
     return [f if f.lower().endswith(VIDEO_EXT) else to_jpg(f) for f in files]
 
 
+def expand_url(url: str) -> str:
+    """Expand short TikTok links (vt./vm.tiktok.com) to the full URL:
+    only the full URL shows /photo/ (slideshow), and gallery-dl only understands the full one."""
+    if not re.search(r"//(vt|vm)\.tiktok\.com/", url):
+        return url
+    try:
+        r = requests.get(url, allow_redirects=True, timeout=15, stream=True,
+                         headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                                                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Safari/537.36"})
+        r.close()
+        return r.url
+    except Exception as e:
+        print("Couldn't expand short link:", e)
+        return url
+
+
 def fetch(url: str, folder: str) -> list[str]:
     """Returns a list of files: a single video, or several photos/videos (carousel)."""
+    url = expand_url(url)
     error = None
     if "/photo/" not in url:              # /photo/ in a TikTok URL = slideshow, no video to fetch
         try:
@@ -286,8 +333,10 @@ async def handle_link(msg: Message):
             cache_put(url, sent)
             kind = "video" if len(sent) == 1 and sent[0][0] == "video" else "album"
             log_download(msg.from_user.id, msg.chat.id, kind, url, True)
+            await track(msg.bot, url, True)
     except Exception as e:
         print("Download error:", e)
+        await track(msg.bot, url, False, str(e))
         log_download(msg.from_user.id, msg.chat.id, "video", url, False)
         await msg.reply("❌ Couldn't download this post. It may be private or the link is broken.")
     finally:
@@ -353,7 +402,10 @@ async def handle_audio(call: CallbackQuery):
 async def main():
     if not TOKEN:
         raise SystemExit("BOT_TOKEN environment variable is not set")
-    await dp.start_polling(Bot(TOKEN))
+    bot = Bot(TOKEN)
+    # If the bot crashed and systemd restarted it, the owner sees this message
+    await alert(bot, "✅ Bot started")
+    await dp.start_polling(bot)
 
 
 if __name__ == "__main__":
